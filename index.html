@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SnapTik Multi-Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+
+  body {
+    min-height: 100vh; display: grid; place-items: center; padding: 24px 16px;
+    background: linear-gradient(180deg, #0a0a1a 0%, #0c1530 50%, #050810 100%);
+    font-family: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+    color: #f0ecfa; overflow-x: hidden; -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== MUSIC OVERLAY ===== */
+  .music-overlay {
+    position: fixed; inset: 0; background: rgba(8, 6, 16, 0.92); backdrop-filter: blur(12px);
+    z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+  }
+  .music-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  .music-overlay .icon { font-size: 64px; animation: bounce 1.5s ease-in-out infinite; }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .reveal-text { display: flex; gap: 0.05em; font-size: 1.5rem; font-weight: 600; color: #94a3b8; letter-spacing: 4px; }
+  .reveal-text span { opacity: 0; animation: reveal 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.4) forwards; }
+  .reveal-text span:nth-child(1) { animation-delay: 0.1s; } .reveal-text span:nth-child(2) { animation-delay: 0.2s; }
+  .reveal-text span:nth-child(3) { animation-delay: 0.3s; } .reveal-text span:nth-child(4) { animation-delay: 0.4s; }
+  .reveal-text span:nth-child(5) { animation-delay: 0.5s; } .reveal-text span:nth-child(6) { animation-delay: 0.6s; }
+  .reveal-text span:nth-child(7) { animation-delay: 0.7s; }
+  @keyframes reveal { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+  .neon-title {
+    font-size: 4rem; font-weight: 900; color: #fff; margin: 0; letter-spacing: 3px;
+    text-shadow: 0 0 10px #fff, 0 0 25px #38bdf8, 0 0 50px #38bdf8, 0 0 100px #0ea5e9, 0 0 150px #0284c7;
+    animation: flicker 2s infinite alternate;
+  }
+  @keyframes flicker { 0%, 18%, 22%, 100% { text-shadow: 0 0 10px #fff, 0 0 25px #38bdf8, 0 0 50px #38bdf8, 0 0 100px #0ea5e9, 0 0 150px #0284c7; } 20% { text-shadow: none; } }
+  .music-overlay button {
+    padding: 16px 40px; border: none; border-radius: 14px; background: linear-gradient(135deg, #a855f7, #ec4899);
+    color: #fff; font-family: inherit; font-weight: 700; font-size: 16px; cursor: pointer; box-shadow: 0 4px 24px rgba(168,85,247,0.4); transition: filter .2s, transform .2s;
+  }
+  .music-overlay button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+  .glow-base {
+    position: fixed; inset: 0; z-index: -2; pointer-events: none;
+    background: radial-gradient(ellipse 60% 30% at 50% 100%, rgba(80,140,255,.18), transparent 70%), radial-gradient(ellipse 40% 30% at 20% 0%, rgba(160,100,255,.14), transparent 70%);
+    filter: blur(40px);
+  }
+  #c { position: fixed; inset: 0; z-index: -1; pointer-events: none; display: block; }
+
+  .stage { perspective: 1300px; width: 100%; max-width: 420px; position: relative; z-index: 1; }
+  .card {
+    position: relative; width: 100%; min-height: 520px; border-radius: 28px;
+    transform-style: preserve-3d; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transition: transform .12s linear; padding: 3px; overflow: hidden; animation: glow 4s linear infinite;
+  }
+  .card::before {
+    content: ""; position: absolute; inset: -50%;
+    background: conic-gradient(from 0deg, #00ffff, transparent 25%, #7a6eff, transparent 60%, #ff00e5, transparent 85%, #00ffff);
+    animation: spin 4s linear infinite; z-index: -1;
+  }
+  .card::after { content: ""; position: absolute; inset: 3px; background: #0a0a1a; border-radius: 25px; z-index: 0; pointer-events: none; }
+  .glass {
+    position: relative; border-radius: 25px; overflow: hidden; height: 100%;
+    background: linear-gradient(160deg, rgba(20, 22, 40, .75), rgba(8, 10, 20, .88));
+    backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,.08); z-index: 1; display: flex; flex-direction: column;
+  }
+
+  .content { position: relative; z-index: 3; flex: 1; display: flex; flex-direction: column; padding: 24px 18px 20px; }
+  .content h1 {
+    font-size: 19px; margin: 0 0 12px; text-align: center; font-weight: 700;
+    background: linear-gradient(135deg, #fff, #67e8f9); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  .tab-wrap { padding: 4px; border-radius: 100px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); margin-bottom: 18px; position: relative; z-index: 10; }
+  .tab-list { position: relative; display: flex; gap: 4px; overflow: hidden; border-radius: 100px; }
+  .indicator { position: absolute; top: 0; left: 0; height: 100%; width: 0; border-radius: 100px; background: linear-gradient(135deg, #7c5cff, #5b8cff); transition: transform .4s ease, width .4s ease; pointer-events: none; }
+  .tab-btn {
+    position: relative; z-index: 1; flex: 1; padding: 10px 16px; font: inherit; font-weight: 600; font-size: 14px;
+    color: #8b8ba3; background: none; border: 0; border-radius: 100px; cursor: pointer; transition: color .3s ease;
+  }
+  .tab-btn.is-active { color: #fff; }
+  .tab-panel { display: none; flex: 1; flex-direction: column; }
+  .tab-panel.is-active { display: flex; }
+
+  .row { display: flex; gap: 8px; flex-direction: column; }
+  input[type=text] {
+    width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12);
+    background: rgba(10, 12, 24, .65); color: #f0ecfa; font-family: inherit; font-size: 13px; outline: none;
+  }
+  input[type=text]:focus { border-color: #a855f7; }
+  .btn-go {
+    padding: 11px 18px; border: 0; border-radius: 12px; background: linear-gradient(135deg, #a855f7, #ec4899);
+    color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; transition: filter .2s;
+  }
+  .btn-go:hover { filter: brightness(1.1); }
+  .btn-go:disabled { opacity: .5; cursor: not-allowed; }
+  
+  #result { margin-top: 10px; flex: 1; overflow-y: auto; }
+  .card-info { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+  .card-info img { width: 54px; height: 54px; border-radius: 8px; object-fit: cover; }
+  .card-info .title { font-size: 11.5px; color: #c8c1de; margin: 0; line-height: 1.4; font-weight: 500; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .dl-list { display: flex; flex-direction: column; gap: 6px; }
+  .dl-list button { width: 100%; padding: 10px; border-radius: 10px; background: linear-gradient(135deg, #a855f7, #ec4899); color: #fff; font-weight: 600; font-size: 12.5px; border: 0; cursor: pointer; }
+  .status { text-align: center; color: #9992b3; font-size: 12.5px; padding: 16px 0; }
+  .err { color: #ff8f8f; font-size: 12.5px; text-align: center; padding: 10px; background: rgba(255,100,100,.08); border-radius: 8px; margin-top: 10px; }
+
+  /* ===== FULLSCREEN OVERLAY ===== */
+  .fullscreen-overlay {
+    position: fixed; inset: 0; z-index: 99990;
+    background: linear-gradient(135deg, #001a2e, #002c50, #0a1a3a);
+    display: flex; flex-direction: column;
+    opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+  .fullscreen-overlay.show { opacity: 1; visibility: visible; }
+
+  #wavyCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+
+  .fs-content {
+    position: relative; z-index: 10; display: flex; flex-direction: column;
+    height: 100%; width: 100%; max-width: 1200px; margin: 0 auto; padding: 20px;
+    overflow-y: auto;
+  }
+
+  .fs-header {
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(10, 15, 30, 0.6); backdrop-filter: blur(10px);
+    padding: 12px 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+  }
+  
+  .fs-back-btn {
+    background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);
+    padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-family: inherit;
+    display: flex; align-items: center; gap: 6px; transition: background 0.2s;
+  }
+  .fs-back-btn:hover { background: rgba(255,255,255,0.2); }
+  
+  .fs-title { font-size: 15px; font-weight: 600; color: #e2e8f0; }
+  
+  .fs-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-action { padding: 8px 14px; border-radius: 8px; border: none; color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; transition: filter 0.2s; }
+  .btn-action:hover { filter: brightness(1.1); }
+  .btn-action:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+  .btn-select-all { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+  .btn-select-all.is-all { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+  .btn-dl-selected { background: linear-gradient(135deg, #fe2c55, #b14bff); }
+  .btn-dl-all { background: linear-gradient(135deg, #22c55e, #16a34a); }
+
+  .fs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px; padding-bottom: 40px;
+  }
+  @media (min-width: 1024px) {
+    .fs-grid { grid-template-columns: repeat(5, 1fr); }
+  }
+
+  .fs-card {
+    background: rgba(20, 25, 45, 0.75); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;
+    backdrop-filter: blur(5px); transition: transform 0.2s;
+  }
+  .fs-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.3); }
+  
+  .fs-img-wrap { position: relative; pointer-events: none; }
+  .fs-img-wrap img { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; pointer-events: none; }
+
+  .fs-checkbox {
+    position: absolute; top: 10px; right: 10px;
+    width: 24px; height: 24px;
+    accent-color: #fe2c55; cursor: pointer; z-index: 2;
+    border-radius: 6px;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.6), 0 2px 6px rgba(0,0,0,0.5);
+    transition: transform 0.15s ease;
+    pointer-events: auto; /* Chỉ cho phép click vào checkbox */
+  }
+  .fs-checkbox:checked { transform: scale(1.15); }
+
+  .fs-img-wrap:has(.fs-checkbox:checked) img { opacity: 0.55; transition: opacity 0.2s; }
+  .fs-img-wrap:has(.fs-checkbox:checked) {
+    outline: 3px solid #fe2c55;
+    outline-offset: -3px;
+    border-radius: 8px;
+  }
+  
+  .fs-card-btn {
+    background: linear-gradient(135deg, #fe2c55, #b14bff); color: #fff; text-decoration: none;
+    text-align: center; padding: 10px; font-size: 13px; font-weight: 600; border: none; cursor: pointer;
+    transition: opacity 0.2s, background 0.3s;
+  }
+  .fs-card-btn:hover { filter: brightness(1.1); }
+  .fs-card-btn:disabled { opacity: 0.8; cursor: not-allowed; filter: none; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(8,6,16,.85); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 99999; padding: 20px; }
+  .overlay.open { display: flex; }
+  .modal { background: #1a1630; border: 1px solid #2e2a45; border-radius: 16px; padding: 24px; width: 100%; max-width: 320px; text-align: center; position: relative; }
+  .modal h3 { margin: 0 0 14px; font-size: 14px; }
+  .bar-track { height: 20px; background: #131020; border-radius: 999px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; width: 0%; background: linear-gradient(135deg, #a855f7, #ec4899); transition: width .15s; }
+  .bar-fill.indet { width: 40%; animation: indet 1.1s ease-in-out infinite; }
+  @keyframes indet { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+  .pct { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 11px; font-weight: 700; color: #fff; }
+  .done { color: #7ee787; font-size: 12.5px; margin-top: 12px; display: none; }
+
+  @keyframes glow { 0%, 100% { box-shadow: 0 0 18px rgba(0,204,238,.7), 0 0 36px rgba(0,204,238,.4); } 33% { box-shadow: 0 0 18px rgba(122,110,255,.7), 0 0 36px rgba(122,110,255,.4); } 66% { box-shadow: 0 0 18px rgba(255,68,238,.7), 0 0 36px rgba(255,68,238,.4); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- MUSIC OVERLAY -->
+<div class="music-overlay" id="musicOverlay">
+  <div class="icon">🎵</div>
+  <div class="reveal-text"><span>W</span><span>E</span><span>L</span><span>C</span><span>O</span><span>M</span><span>E</span></div>
+  <h1 class="neon-title">MUSIC</h1>
+  <button id="startBtn">Bắt đầu</button>
+</div>
+<audio id="bgMusic" loop>
+  <source src="https://raw.githubusercontent.com/tung010171/tunghaha/main/nhac.mp3" type="audio/mpeg">
+</audio>
+
+<div class="glow-base" aria-hidden="true"></div>
+<canvas id="c" aria-hidden="true"></canvas>
+
+<!-- MAIN CARD -->
+<div class="stage">
+  <div class="card" id="card">
+    <div class="glass">
+      <div class="content">
+        <h1>SnapTik Downloader</h1>
+
+        <div class="tab-wrap">
+          <div class="tab-list" role="tablist" id="tabList">
+            <span class="indicator" id="indicator" aria-hidden="true"></span>
+            <button class="tab-btn is-active" id="tabBtnVideo">Video</button>
+            <button class="tab-btn" id="tabBtnImage">Ảnh</button>
+          </div>
+        </div>
+
+        <!-- TAB VIDEO -->
+        <div class="tab-panel is-active" id="panelVideo">
+          <div class="row">
+            <input type="text" id="url" placeholder="https://www.tiktok.com/@user/video/..." />
+            <button class="btn-go" id="go">Tải video</button>
+          </div>
+          <div id="result"></div>
+        </div>
+
+        <!-- TAB ẢNH -->
+        <div class="tab-panel" id="panelImage">
+          <div class="row" style="margin-top: 20px;">
+            <input type="text" id="imgUrlInput" placeholder="Dán link TikTok (ảnh/slideshow)..." />
+            <button class="btn-go" id="imgGo">Lấy ảnh</button>
+          </div>
+          <div style="text-align: center; color: #8b8ba3; font-size: 13px; margin-top: 15px;">
+            * Ảnh sẽ được hiển thị ở một giao diện rộng rãi riêng biệt.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FULLSCREEN IMAGE GRID -->
+<div class="fullscreen-overlay" id="fsOverlay">
+  <canvas id="wavyCanvas"></canvas>
+
+  <div class="fs-content">
+    <header class="fs-header">
+      <button class="fs-back-btn" id="fsBackBtn">← Quay lại</button>
+      <div class="fs-title">Đã tìm thấy <span id="fsImageCount">0</span> ảnh</div>
+      <div class="fs-actions">
+        <button class="btn-action btn-select-all" id="fsSelectAllBtn">Chọn tất cả</button>
+        <button class="btn-action btn-dl-selected" id="fsDlSelectedBtn" disabled>Tải ảnh đã chọn (0)</button>
+        <button class="btn-action btn-dl-all" id="fsDlAllBtn">Tải tất cả</button>
+      </div>
+    </header>
+
+    <div class="fs-grid" id="fsGrid"></div>
+  </div>
+</div>
+
+<!-- PROGRESS MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="modal-title">Đang xử lý...</h3>
+    <div class="bar-track">
+      <div class="bar-fill indet" id="bar"></div>
+      <span class="pct" id="pct">0%</span>
+    </div>
+    <div class="done" id="done-msg">✅ Hoàn tất!</div>
+  </div>
+</div>
+
+<script>
+/* ====================================================
+   1. WELCOME MUSIC
+   ==================================================== */
+const musicOverlay = document.getElementById('musicOverlay');
+const bgMusic = document.getElementById('bgMusic');
+const startBtn = document.getElementById('startBtn');
+function enterSite() { bgMusic.volume = 0.7; bgMusic.play().catch(err => console.warn(err)); musicOverlay.classList.add('hidden'); }
+startBtn.addEventListener('click', enterSite);
+musicOverlay.addEventListener('click', enterSite);
+
+/* ====================================================
+   2. PARTICLES CANVAS
+   ==================================================== */
+(function () {
+  const c = document.getElementById('c'); const ctx = c.getContext('2d'); if (!ctx) return;
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W = 0, H = 0, dpr = 1, rafId = 0; let parts = [];
+  const COLORS = ['#7ab8ff','#a8c8ff','#c8a0ff','#8fd8ff','#b0c0ff','#e0b8ff'];
+  function count() { return Math.min(140, Math.max(50, Math.floor(W / 12))); }
+  function make(anywhere) {
+    const r = Math.random() * 2.2 + 0.6;
+    return { x: Math.random() * W, y: anywhere ? Math.random() * H : H + 20, r, vy: -(0.3 + Math.random() * 0.9), vx: (Math.random() - 0.5) * 0.4, sway: Math.random() * Math.PI * 2, swaySpeed: 0.4 + Math.random() * 0.8, color: COLORS[(Math.random() * COLORS.length) | 0], glow: r > 1.6, life: 0, maxLife: 6 + Math.random() * 6 };
+  }
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2); W = window.innerWidth; H = window.innerHeight;
+    c.width = W * dpr; c.height = H * dpr; c.style.width = W + 'px'; c.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const need = count(); while (parts.length < need) parts.push(make(true));
+    if (parts.length > need) parts.length = need;
+  }
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i]; p.life += 1 / 60; p.sway += 0.03 * p.swaySpeed; p.x += p.vx + Math.sin(p.sway) * 0.4; p.y += p.vy;
+      const fade = Math.max(0, 1 - p.life / p.maxLife); const alpha = 0.7 * fade;
+      if (p.life > p.maxLife || p.y < -20) { parts[i] = make(false); continue; }
+      if (p.glow) { const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 8); g.addColorStop(0, p.color + 'cc'); g.addColorStop(0.4, p.color + '44'); g.addColorStop(1, p.color + '00'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 8, 0, Math.PI * 2); ctx.fill(); }
+      ctx.beginPath(); ctx.fillStyle = p.color; ctx.globalAlpha = alpha; ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1; rafId = requestAnimationFrame(draw);
+  }
+  function start() { if (!rafId && !reduceMotion) rafId = requestAnimationFrame(draw); }
+  function stop() { if (rafId) { cancelAnimationFrame(rafId); rafId = 0; } }
+  window.addEventListener('resize', resize, { passive: true });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else start(); });
+  resize(); start();
+})();
+
+/* ====================================================
+   3. TABS
+   ==================================================== */
+(function(){
+  const list = document.getElementById('tabList');
+  const indicator = document.getElementById('indicator');
+  const btnVideo = document.getElementById('tabBtnVideo');
+  const btnImage = document.getElementById('tabBtnImage');
+  const panelVideo = document.getElementById('panelVideo');
+  const panelImage = document.getElementById('panelImage');
+  const buttons = [btnVideo, btnImage];
+  const panels = [panelVideo, panelImage];
+
+  function moveIndicator(btn){
+    const lr = list.getBoundingClientRect(); const br = btn.getBoundingClientRect();
+    indicator.style.width = br.width + 'px';
+    indicator.style.transform = 'translateX(' + (br.left - lr.left + list.scrollLeft) + 'px)';
+  }
+  function activate(btn){
+    const i = buttons.indexOf(btn);
+    buttons.forEach((b,j)=>{ b.classList.toggle('is-active', i===j); });
+    panels.forEach((p,j)=>p.classList.toggle('is-active', i===j));
+    moveIndicator(btn);
+  }
+  btnVideo.addEventListener('click', () => activate(btnVideo));
+  btnImage.addEventListener('click', () => activate(btnImage));
+  requestAnimationFrame(() => moveIndicator(btnVideo));
+  window.addEventListener('resize', () => moveIndicator(document.querySelector('.tab-btn.is-active')));
+})();
+
+/* ====================================================
+   4. PROGRESS MODAL
+   ==================================================== */
+const $overlay = document.getElementById('overlay');
+const $title   = document.getElementById('modal-title');
+const $bar     = document.getElementById('bar');
+const $pct     = document.getElementById('pct');
+const $done    = document.getElementById('done-msg');
+
+function openModal(label) {
+  $title.textContent = label || 'Đang xử lý...';
+  $bar.classList.add('indet'); $bar.style.width = '40%'; $pct.textContent = '...';
+  $done.style.display = 'none'; $overlay.classList.add('open');
+}
+function closeModal() { $overlay.classList.remove('open'); }
+function setProgress(p) {
+  if (p == null || p < 0) { $bar.classList.add('indet'); $bar.style.width = '40%'; $pct.textContent = '...'; }
+  else { $bar.classList.remove('indet'); $bar.style.width = p + '%'; $pct.textContent = p + '%'; }
+}
+function markDone(msg) {
+  $bar.classList.remove('indet'); $bar.style.width = '100%'; $pct.textContent = '100%';
+  $done.style.display = 'block'; $title.textContent = 'Hoàn tất';
+  if (msg) $done.textContent = msg;
+}
+
+/* ====================================================
+   5. TAB VIDEO
+   ==================================================== */
+const FORMATS = [
+  { key: 'play',  label: 'MP4 không logo', ext: 'mp4' },
+  { key: 'music', label: 'Nhạc MP3',        ext: 'mp3' },
+];
+function extractUrl(text) {
+  if (!text) return null;
+  const re = /(https?:\/\/)?((vm|vt)\.tiktok\.com\/\w+|((www|m)\.)?tiktok\.com\/@[^\s\/]+\/(video|photo)\/\d+|((www|m)\.)?tiktok\.com\/v\/\d+(\.html)?|((www|m)\.)?tiktok\.com\/t\/\w+)/;
+  const m = text.match(re); return m ? m[0] : null;
+}
+async function fetchInfo(link) {
+  const url = 'https://tikwm.com/api/?url=' + encodeURIComponent(link) + '&hd=1';
+  const res = await fetch(url); return res.json();
+}
+
+async function downloadVideo(url, name, label) {
+  openModal('Đang tải: ' + label);
+  try {
+    const res = await fetch(url, { mode: 'cors' }); if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = blobUrl; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
+    markDone('✅ Đã lưu file về máy!'); setTimeout(closeModal, 1500);
+  } catch (err) {
+    const a = document.createElement('a'); a.href = url; a.download = name; a.target = '_blank'; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove(); markDone('✅ Đã mở tab tải xuống!'); setTimeout(closeModal, 1500);
+  }
+}
+
+function renderVideo(data) {
+  const cover = data.cover ? (data.cover.startsWith('http') ? data.cover : 'https://tikwm.com' + data.cover) : '';
+  const title = (data.title || 'Video TikTok').replace(/</g, '&lt;'); const id = data.id || 'video';
+  const items = FORMATS.filter(f => data[f.key]).map(f => ({ label: f.label, url: data[f.key], name: `tiktok_${id}.${f.ext}` }));
+  if (!items.length) { document.getElementById('result').innerHTML = '<div class="err">Không có định dạng tải được.</div>'; return; }
+  const html = `<div class="card-info">${cover ? `<img src="${cover}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}<p class="title">${title}</p></div><div class="dl-list">${items.map(x => `<button data-url="${x.url}" data-name="${x.name}" data-label="${x.label}">${x.label}</button>`).join('')}</div>`;
+  const box = document.getElementById('result'); box.innerHTML = html;
+  box.querySelectorAll('.dl-list button').forEach(btn => { btn.onclick = () => downloadVideo(btn.dataset.url, btn.dataset.name, btn.dataset.label); });
+}
+
+document.getElementById('go').onclick = async () => {
+  const link = extractUrl(document.getElementById('url').value.trim());
+  const $result = document.getElementById('result'); const $go = document.getElementById('go');
+  if (!link) { $result.innerHTML = '<div class="err">Link không hợp lệ.</div>'; return; }
+  $go.disabled = true; $result.innerHTML = '<div class="status">Đang lấy thông tin…</div>';
+  try {
+    const full = link.startsWith('http') ? link : 'https://' + link;
+    const json = await fetchInfo(full);
+    if (!json || json.code !== 0 || !json.data) { $result.innerHTML = '<div class="err">Lỗi: ' + (json?.msg || 'Thử lại sau.') + '</div>'; } else { renderVideo(json.data); }
+  } catch (err) { $result.innerHTML = '<div class="err">Lỗi kết nối.</div>'; } finally { $go.disabled = false; }
+};
+document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('go').click(); });
+
+/* ====================================================
+   6. TAB ẢNH — LẤY QUA API VÀ XỬ LÝ TẢI FILE
+   ==================================================== */
+async function fetchImagePost(link) {
+  const tries = [
+    { url: 'https://api3.viesnap.com/api/fetch?url=' + encodeURIComponent(link), parser: parseViesnap },
+    { url: 'https://api3.viesnap.com/api?url=' + encodeURIComponent(link), parser: parseViesnap },
+    { url: 'https://api3.viesnap.com/fetch?url=' + encodeURIComponent(link), parser: parseViesnap },
+    { url: 'https://tikwm.com/api/?url=' + encodeURIComponent(link), parser: parseTikwm },
+  ];
+  let lastErr = 'Không lấy được dữ liệu.';
+  for (const t of tries) {
+    try {
+      const res = await fetch(t.url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) { lastErr = 'HTTP ' + res.status + ' @ ' + new URL(t.url).hostname; continue; }
+      const json = await res.json();
+      const urls = t.parser(json);
+      if (urls && urls.length > 0) return urls;
+      lastErr = 'API trả về không có ảnh.';
+    } catch (e) { lastErr = e.message; }
+  }
+  throw new Error(lastErr);
+}
+
+function parseViesnap(json) {
+  if (!json) return [];
+  const d = json.data || json;
+  const out = [];
+  if (Array.isArray(d.images)) {
+    d.images.forEach(it => {
+      if (typeof it === 'string') out.push(it);
+      else if (it && it.url) out.push(it.url);
+      else if (it && it.url_list && it.url_list[0]) out.push(it.url_list[0]);
+    });
+  }
+  if (d.image_post_info && Array.isArray(d.image_post_info.images)) {
+    d.image_post_info.images.forEach(it => {
+      const u = it.display_image?.url_list?.[0] || it.thumbnail?.url_list?.[0] || it.url;
+      if (u) out.push(u);
+    });
+  }
+  if (Array.isArray(d.medias)) {
+    d.medias.forEach(it => { if (it.url) out.push(it.url); });
+  }
+  return [...new Set(out)];
+}
+
+function parseTikwm(json) {
+  if (!json || json.code !== 0 || !json.data) return [];
+  const d = json.data;
+  const out = [];
+  if (Array.isArray(d.images)) {
+    d.images.forEach(u => { if (typeof u === 'string') out.push(u); });
+  }
+  if (d.image_post_info && Array.isArray(d.image_post_info.images)) {
+    d.image_post_info.images.forEach(it => {
+      const u = it.display_image?.url_list?.[0] || it.thumbnail?.url_list?.[0];
+      if (u) out.push(u);
+    });
+  }
+  return [...new Set(out)];
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const fsOverlay = document.getElementById('fsOverlay');
+  const fsGrid = document.getElementById('fsGrid');
+  const fsImageCount = document.getElementById('fsImageCount');
+  const fsDlSelectedBtn = document.getElementById('fsDlSelectedBtn');
+  const fsDlAllBtn = document.getElementById('fsDlAllBtn');
+  const fsSelectAllBtn = document.getElementById('fsSelectAllBtn');
+  const fsBackBtn = document.getElementById('fsBackBtn');
+  
+  const imgInput = document.getElementById('imgUrlInput');
+  const imgGo = document.getElementById('imgGo');
+
+  let globalImages = [];
+
+  imgGo.addEventListener('click', async () => {
+    const raw = imgInput.value.trim();
+    const link = extractUrl(raw);
+    if (!link) { alert('Link không hợp lệ. Vui lòng dán link TikTok.'); return; }
+
+    openModal('Đang lấy dữ liệu ảnh...');
+    imgGo.disabled = true;
+
+    try {
+      const full = link.startsWith('http') ? link : 'https://' + link;
+      const urls = await fetchImagePost(full);
+
+      if (!urls || urls.length === 0) {
+        throw new Error('Không tìm thấy ảnh nào trong bài đăng này.');
+      }
+
+      globalImages = urls.map((url, i) => ({
+        imgUrl: url,
+        dlLink: url,
+        filename: `tiktok_image_${Date.now()}_${i}.jpg`
+      }));
+
+      markDone(`✅ Đã tìm thấy ${globalImages.length} ảnh!`);
+      setTimeout(closeModal, 800);
+      renderFullGrid(globalImages);
+      fsOverlay.classList.add('show');
+    } catch (err) {
+      closeModal();
+      alert('Lỗi: ' + err.message);
+    } finally {
+      imgGo.disabled = false;
+    }
+  });
+
+  imgInput.addEventListener('keydown', e => { if (e.key === 'Enter') imgGo.click(); });
+
+  function renderFullGrid(images) {
+    fsGrid.innerHTML = '';
+    fsImageCount.textContent = images.length;
+    updateSelectedCount();
+
+    images.forEach((data, index) => {
+      const card = document.createElement('div');
+      card.className = 'fs-card';
+
+      const imgWrap = document.createElement('div');
+      imgWrap.className = 'fs-img-wrap';
+
+      const img = document.createElement('img');
+      img.src = data.imgUrl;
+      img.loading = 'lazy';
+      img.referrerPolicy = 'no-referrer';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'fs-checkbox';
+      checkbox.dataset.index = index;
+      checkbox.addEventListener('change', updateSelectedCount);
+
+      imgWrap.appendChild(img);
+      imgWrap.appendChild(checkbox);
+
+      const btn = document.createElement('button');
+      btn.className = 'fs-card-btn';
+      btn.id = `dl-btn-${index}`; 
+      btn.textContent = 'Tải ảnh';
+      
+      btn.onclick = () => downloadSingleImage(data.dlLink, index);
+
+      card.appendChild(imgWrap);
+      card.appendChild(btn);
+      fsGrid.appendChild(card);
+    });
+  }
+
+  // HÀM TẢI BLOB AN TOÀN: Ép trình duyệt tải file, KHÔNG BAO GIỜ mở tab
+  async function downloadSingleImage(url, index) {
+    const btn = document.getElementById(`dl-btn-${index}`);
+    if (btn) { 
+      btn.textContent = 'Đang tải...'; 
+      btn.disabled = true; 
+      btn.style.background = '#eab308'; // Màu vàng
+    }
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Lỗi mạng');
+      const blob = await res.blob();
+      
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `tiktok_image_${Date.now()}_${index}.jpg`;
+      // KHÔNG DÙNG target="_blank" Ở ĐÂY
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+      if (btn) {
+        btn.textContent = 'Đã tải ✓'; 
+        btn.style.background = '#22c55e'; // Xanh lá
+        setTimeout(() => {
+          btn.textContent = 'Tải ảnh'; 
+          btn.style.background = '';
+          btn.disabled = false;
+        }, 1500);
+      }
+    } catch (err) {
+      console.warn('Lỗi fetch, chuyển sang mở tab trực tiếp:', err);
+      // Fallback cực hiếm: Chỉ mở tab nếu server TikTok chặn fetch (CORS)
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      if (btn) {
+        btn.textContent = 'Tải ảnh'; 
+        btn.style.background = '';
+        btn.disabled = false;
+      }
+    }
+  }
+
+  function updateSelectedCount() {
+    const checked = fsGrid.querySelectorAll('.fs-checkbox:checked').length;
+    const total = fsGrid.querySelectorAll('.fs-checkbox').length;
+
+    fsDlSelectedBtn.textContent = `Tải ảnh đã chọn (${checked})`;
+    fsDlSelectedBtn.disabled = checked === 0;
+
+    if (checked === 0) {
+      fsSelectAllBtn.textContent = 'Chọn tất cả';
+      fsSelectAllBtn.classList.remove('is-all');
+    } else if (checked === total) {
+      fsSelectAllBtn.textContent = 'Bỏ chọn tất cả';
+      fsSelectAllBtn.classList.add('is-all');
+    } else {
+      fsSelectAllBtn.textContent = `Chọn tất cả (${checked}/${total})`;
+      fsSelectAllBtn.classList.remove('is-all');
+    }
+  }
+
+  fsBackBtn.onclick = () => {
+    fsOverlay.classList.remove('show');
+    fsGrid.querySelectorAll('.fs-checkbox').forEach(cb => cb.checked = false);
+    updateSelectedCount();
+  };
+
+  fsSelectAllBtn.onclick = () => {
+    const checkboxes = fsGrid.querySelectorAll('.fs-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateSelectedCount();
+  };
+
+  // TẢI TẤT CẢ (CHIA LÔ 3 ẢNH - VỪA NHANH VỪA AN TOÀN)
+  fsDlAllBtn.onclick = async () => {
+    fsDlAllBtn.disabled = true;
+    const oldText = fsDlAllBtn.textContent;
+    const BATCH_SIZE = 3; 
+    const total = globalImages.length;
+    
+    openModal(`Đang tải ${total} ảnh...`);
+
+    for (let i = 0; i < total; i += BATCH_SIZE) {
+      const batch = globalImages.slice(i, i + BATCH_SIZE);
+      
+      const currentProgress = Math.min(i + BATCH_SIZE, total);
+      fsDlAllBtn.textContent = `Đang tải ${currentProgress}/${total}...`;
+      $title.textContent = `Đang tải lô ${Math.floor(i/BATCH_SIZE) + 1} (${currentProgress}/${total})...`;
+      setProgress(Math.round((currentProgress / total) * 100));
+
+      // Tải 3 ảnh cùng lúc
+      const promises = batch.map((img, j) => downloadSingleImage(img.dlLink, i + j));
+      await Promise.all(promises);
+      
+      // Nghỉ 1s trước khi sang lô tiếp
+      if (i + BATCH_SIZE < total) {
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+    
+    setProgress(100);
+    markDone(`✅ Đã tải xong ${total} ảnh!`);
+    setTimeout(() => {
+      closeModal();
+      fsDlAllBtn.textContent = oldText; 
+      fsDlAllBtn.disabled = false;
+    }, 2000);
+  };
+
+  // TẢI ẢNH ĐÃ CHỌN (CHIA LÔ)
+  fsDlSelectedBtn.onclick = async () => {
+    const checkedBoxes = fsGrid.querySelectorAll('.fs-checkbox:checked');
+    const selectedIndices = Array.from(checkedBoxes).map(cb => parseInt(cb.dataset.index));
+    if (selectedIndices.length === 0) return;
+
+    fsDlSelectedBtn.disabled = true;
+    fsSelectAllBtn.disabled = true;
+    const oldText = fsDlSelectedBtn.textContent;
+    const BATCH_SIZE = 3; 
+    const total = selectedIndices.length;
+
+    openModal(`Đang tải ${total} ảnh đã chọn...`);
+
+    for (let i = 0; i < total; i += BATCH_SIZE) {
+      const batchIndices = selectedIndices.slice(i, i + BATCH_SIZE);
+      
+      const currentProgress = Math.min(i + BATCH_SIZE, total);
+      fsDlSelectedBtn.textContent = `Đang tải ${currentProgress}/${total}...`;
+      $title.textContent = `Đang tải lô ${Math.floor(i/BATCH_SIZE) + 1} (${currentProgress}/${total})...`;
+      setProgress(Math.round((currentProgress / total) * 100));
+
+      const promises = batchIndices.map((idx, j) => downloadSingleImage(globalImages[idx].dlLink, idx));
+      await Promise.all(promises);
+
+      if (i + BATCH_SIZE < total) {
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+
+    setProgress(100);
+    markDone(`✅ Đã tải xong ${total} ảnh!`);
+    setTimeout(() => {
+      closeModal();
+      fsSelectAllBtn.disabled = false;
+      updateSelectedCount();
+    }, 2000);
+  };
+});
+
+/* ====================================================
+   7. 3D CARD
+   ==================================================== */
+const card = document.getElementById('card');
+let rx = 0, ry = 0, trx = 0, try_ = 0;
+let lastMove = 0, idleStart = 0;
+window.addEventListener('pointermove', e => {
+  const r = card.getBoundingClientRect();
+  const nx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (r.width / 2)));
+  const ny = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (r.height / 2)));
+  try_ = nx * 12; trx = -ny * 12;
+  lastMove = performance.now(); idleStart = 0;
+}, { passive: true });
+
+function loop(now) {
+  if (now - lastMove > 1000) {
+    if (!idleStart) idleStart = now;
+    const t = (now - idleStart) / 1000; const A = 12, speed = 0.9;
+    try_ = A * Math.cos(t * speed); trx = -A * Math.sin(t * speed);
+  }
+  ry += (try_ - ry) * 0.08; rx += (trx - rx) * 0.08;
+  card.style.setProperty('--rx', rx.toFixed(2) + 'deg');
+  card.style.setProperty('--ry', ry.toFixed(2) + 'deg');
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ====================================================
+   8. WAVY BACKGROUND
+   ==================================================== */
+(function () {
+  "use strict";
+  const ZOOM_FACTOR = 0.3;
+  const BASE_WAVE_AMPLITUDE = 0.2;
+  const RANDOM_WAVE_FACTOR = 0.15;
+  const WAVE_FREQUENCY = 4.0;
+  const TIME_FACTOR = 0.25;
+  const BASE_SWIRL_STRENGTH = 1.2;
+  const SWIRL_TIME_MULT = 5.0;
+  const NOISE_SWIRL_FACTOR = 0.2;
+  const FBM_OCTAVES = 10;
+
+  const seaColors = [
+    [0.0, 0.02, 0.05], [0.0, 0.04, 0.08], [0.0, 0.06, 0.12], [0.0, 0.08, 0.18], [0.0, 0.1, 0.24],
+    [0.0, 0.14, 0.32], [0.0, 0.2, 0.4], [0.0, 0.24, 0.48], [0.0, 0.3, 0.55], [0.05, 0.35, 0.6],
+    [0.08, 0.4, 0.65], [0.1, 0.45, 0.7], [0.15, 0.5, 0.75], [0.2, 0.58, 0.8], [0.25, 0.65, 0.85],
+    [0.3, 0.72, 0.9], [0.4, 0.78, 0.92], [0.5, 0.85, 0.95], [0.7, 0.9, 0.97], [0.85, 0.95, 1.0]
+  ];
+
+  function buildFragmentShader() {
+    const fbmOctavesInt = Math.floor(FBM_OCTAVES);
+    const colorArraySrc = seaColors.map((c) => `vec3(${c[0]}, ${c[1]}, ${c[2]})`).join(",\n  ");
+    return `#version 300 es
+precision highp float;
+out vec4 outColor;
+uniform vec2 uResolution;
+uniform float uTime;
+#define NUM_COLORS 20
+vec3 seaColors[NUM_COLORS] = vec3[](
+  ${colorArraySrc}
+);
+vec3 permute(vec3 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
+float noise2D(vec2 v) {
+  const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+  vec2 i = floor(v + dot(v, C.yy));
+  vec2 x0 = v - i + dot(i, C.xx);
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+  i = mod(i, 289.0);
+  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+  vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+  m = m * m; m = m * m;
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+  m *= 1.792843 - 0.853734 * (a0 * a0 + h * h);
+  vec3 g;
+  g.x  = a0.x  * x0.x + h.x  * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+float fbm(vec2 st) {
+  float value = 0.0;
+  float amplitude = 0.5;
+  float freq = 1.0;
+  for (int i = 0; i < ${fbmOctavesInt}; i++) {
+    value += amplitude * noise2D(st * freq);
+    freq *= 2.0;
+    amplitude *= 0.5;
+  }
+  return value;
+}
+void main() {
+  vec2 uv = (gl_FragCoord.xy / uResolution.xy) * 2.0 - 1.0;
+  uv.x *= uResolution.x / uResolution.y;
+  uv *= float(${ZOOM_FACTOR});
+  float t = uTime * float(${TIME_FACTOR});
+  float waveAmp = float(${BASE_WAVE_AMPLITUDE}) + float(${RANDOM_WAVE_FACTOR}) * noise2D(vec2(t, 27.7));
+  float waveX = waveAmp * sin(uv.y * float(${WAVE_FREQUENCY}) + t);
+  float waveY = waveAmp * sin(uv.x * float(${WAVE_FREQUENCY}) - t);
+  uv.x += waveX;
+  uv.y += waveY;
+  float r = length(uv);
+  float angle = atan(uv.y, uv.x);
+  float swirlStrength = float(${BASE_SWIRL_STRENGTH}) * (1.0 - smoothstep(0.0, 1.0, r));
+  angle += swirlStrength * sin(uTime + r * float(${SWIRL_TIME_MULT}));
+  uv = vec2(cos(angle), sin(angle)) * r;
+  float n = fbm(uv);
+  float swirlEffect = float(${NOISE_SWIRL_FACTOR}) * sin(t + n * 3.0);
+  n += swirlEffect;
+  float noiseVal = 0.5 * (n + 1.0);
+  float idx = clamp(noiseVal, 0.0, 1.0) * float(NUM_COLORS - 1);
+  int iLow = int(floor(idx));
+  int iHigh = int(min(float(iLow + 1), float(NUM_COLORS - 1)));
+  float f = fract(idx);
+  vec3 colLow = seaColors[iLow];
+  vec3 colHigh = seaColors[iHigh];
+  vec3 color = mix(colLow, colHigh, f);
+  if (iLow == 0 && iHigh == 0) { outColor = vec4(color, 0.0); } else { outColor = vec4(color, 1.0); }
+}`;
+  }
+
+  const vertexShaderSource = `#version 300 es
+precision mediump float;
+in vec2 aPosition;
+void main() { gl_Position = vec4(aPosition, 0.0, 1.0); }`;
+
+  function createShaderProgram(gl, vsSource, fsSource) {
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertexShader, vsSource); gl.compileShader(vertexShader);
+    if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) return null;
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragmentShader, fsSource); gl.compileShader(fragmentShader);
+    if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) return null;
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader); gl.attachShader(program, fragmentShader); gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+    return program;
+  }
+
+  const canvas = document.getElementById("wavyCanvas");
+  if (!canvas) return;
+  const fsSource = buildFragmentShader();
+  const gl = canvas.getContext("webgl2", { alpha: true });
+  if (!gl) return;
+
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.clearColor(0, 0, 0, 0);
+  const program = createShaderProgram(gl, vertexShaderSource, fsSource);
+  if (!program) return;
+  gl.useProgram(program);
+
+  const quadVertices = new Float32Array([ -1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1 ]);
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
+  const aPositionLoc = gl.getAttribLocation(program, "aPosition");
+  gl.enableVertexAttribArray(aPositionLoc); gl.vertexAttribPointer(aPositionLoc, 2, gl.FLOAT, false, 0, 0);
+
+  const uResolutionLoc = gl.getUniformLocation(program, "uResolution");
+  const uTimeLoc = gl.getUniformLocation(program, "uTime");
+  const startTime = performance.now();
+
+  function render() {
+    const currentTime = performance.now();
+    const elapsed = (currentTime - startTime) * 0.001;
+    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+      canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    gl.clear(gl.COLOR_BUFFER_BIT); gl.useProgram(program); gl.bindVertexArray(vao);
+    gl.uniform2f(uResolutionLoc, canvas.width, canvas.height); gl.uniform1f(uTimeLoc, elapsed);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    requestAnimationFrame(render);
+  }
+
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  render();
+
+  window.addEventListener("resize", () => {
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  });
+})();
+</script>
+</body>
+</html>
